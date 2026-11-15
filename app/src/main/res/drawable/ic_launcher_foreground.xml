@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- аркуш із загнутим кутом -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,28h26l12,12v40h-38z" />
+    <path
+        android:fillColor="#CFD8DC"
+        android:pathData="M62,28v12h12z" />
+    <!-- рядки тексту -->
+    <path
+        android:fillColor="#37474F"
+        android:pathData="M42,46h26v3h-26z M42,53h26v3h-26z M42,60h26v3h-26z M42,67h18v3h-18z" />
+    <!-- половина аркуша в нічній темі -->
+    <path
+        android:fillColor="#FF8F00"
+        android:pathData="M42,74h26v2h-26z" />
+</vector>
