@@ -40,6 +40,7 @@ import ua.docreader.doc.DocException
 import ua.docreader.doc.Document
 import ua.docreader.doc.DocumentLoader
 import ua.docreader.ui.PageAdapter
+import ua.docreader.ui.Printer
 import ua.docreader.ui.ZoomContainer
 import java.util.concurrent.Executors
 import kotlin.math.abs
@@ -255,7 +256,9 @@ class MainActivity : Activity() {
                     isChecked = tintPhotos
                 }
             }
-            menu.add(0, M_CLOSE, 7, "Закрити документ")
+            menu.add(0, M_SHARE, 7, "Поділитися…")
+            menu.add(0, M_PRINT, 7, "Друк / зберегти як PDF…")
+            menu.add(0, M_CLOSE, 8, "Закрити документ")
         }
         return true
     }
@@ -274,6 +277,14 @@ class MainActivity : Activity() {
                 tintPhotos = !tintPhotos
                 prefs.edit().putBoolean(KEY_TINT_PHOTOS, tintPhotos).apply()
                 applyTheme()
+            }
+            M_SHARE -> doc?.let { shareDocument(it) }
+            M_PRINT -> doc?.let {
+                try {
+                    Printer.print(this, it)
+                } catch (e: Exception) {
+                    showError("Не вдалося запустити друк: ${e.message ?: e.javaClass.simpleName}")
+                }
             }
             M_CLOSE -> closeDocument()
             else -> return super.onOptionsItemSelected(item)
@@ -441,6 +452,17 @@ class MainActivity : Activity() {
         invalidateOptionsMenu()
     }
 
+    private fun shareDocument(d: Document) {
+        scope.launch {
+            try {
+                val intent = withContext(Dispatchers.IO) { ShareProvider.shareIntent(this@MainActivity, d) }
+                if (intent == null) showError("Немає файлу, яким можна поділитися.") else startActivity(intent)
+            } catch (e: Exception) {
+                showError("Не вдалося поділитися файлом: ${e.message ?: e.javaClass.simpleName}")
+            }
+        }
+    }
+
     private fun closeDocument() {
         savePosition()
         val old = doc ?: return
@@ -573,5 +595,7 @@ class MainActivity : Activity() {
         private const val M_GOTO = 6
         private const val M_TINT = 7
         private const val M_CLOSE = 8
+        private const val M_PRINT = 9
+        private const val M_SHARE = 10
     }
 }

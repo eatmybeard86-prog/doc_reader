@@ -6,7 +6,9 @@ import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import java.io.File
 
-class PdfDoc(title: String, file: File, workDir: File) : Document(title, workDir) {
+class PdfDoc(title: String, private val file: File, workDir: File) : Document(title, workDir) {
+    override val pdfFile: File get() = file
+
     private val fd = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
     private val renderer: PdfRenderer = try {
         PdfRenderer(fd)

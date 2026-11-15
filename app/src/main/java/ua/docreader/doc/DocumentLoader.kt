@@ -32,14 +32,18 @@ object DocumentLoader {
         try {
             val files = uris.mapIndexed { i, uri -> copy(ctx, uri, File(dir, "f$i")) }
             val names = uris.map { displayName(ctx, it) }
+            val kinds = files.mapIndexed { i, f -> detect(f, names[i]) }
             if (files.size > 1) {
-                val images = files.filterIndexed { i, f -> detect(f, names[i]) == Kind.IMAGE }
-                if (images.isEmpty()) throw DocException("Кілька файлів можна відкрити разом лише якщо це зображення.")
-                return ImageDoc("${names.first()} (+${images.size - 1})", images, dir)
+                val idx = kinds.indices.filter { kinds[it] == Kind.IMAGE }
+                if (idx.isEmpty()) throw DocException("Кілька файлів можна відкрити разом лише якщо це зображення.")
+                return ImageDoc("${names[idx.first()]} (+${idx.size - 1})", idx.map { files[it] }, dir).apply {
+                    sources = idx.map { Document.Source(files[it], names[it], mimeOf(kinds[it], names[it])) }
+                }
             }
             val file = files.first()
             val name = names.first()
-            return when (detect(file, name)) {
+            val kind = kinds.first()
+            val doc = when (kind) {
                 Kind.PDF -> PdfDoc(name, file, dir)
                 Kind.IMAGE -> ImageDoc(name, listOf(file), dir)
                 Kind.DOCX -> {
@@ -54,10 +58,27 @@ object DocumentLoader {
                 Kind.RTF -> TextDoc(name, RtfParser.parse(file.readBytes()), null, dir)
                 Kind.UNKNOWN -> throw DocException("Непідтримуваний формат файлу. Підтримуються PDF, DOC, DOCX, RTF, JPG, PNG.")
             }
+            doc.sources = listOf(Document.Source(file, name, mimeOf(kind, name)))
+            return doc
         } catch (e: Throwable) {
             dir.deleteRecursively()
             throw e
         }
+    }
+
+    fun mimeOf(kind: Kind, name: String): String = when (kind) {
+        Kind.PDF -> "application/pdf"
+        Kind.DOCX -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        Kind.DOC -> "application/msword"
+        Kind.RTF -> "application/rtf"
+        Kind.IMAGE -> when (name.substringAfterLast('.', "").lowercase()) {
+            "png" -> "image/png"
+            "webp" -> "image/webp"
+            "gif" -> "image/gif"
+            "bmp" -> "image/bmp"
+            else -> "image/jpeg"
+        }
+        Kind.UNKNOWN -> "application/octet-stream"
     }
 
     private fun copy(ctx: Context, uri: Uri, dest: File): File {

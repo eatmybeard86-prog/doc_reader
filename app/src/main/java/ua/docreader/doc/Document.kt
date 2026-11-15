@@ -38,6 +38,14 @@ abstract class Document(val title: String, private val workDir: File?) : Closeab
     /** Чи є зображення фотографіями (тему для них можна вимкнути окремо). */
     open val isPhoto: Boolean = false
 
+    /** Вихідний PDF-файл (для друку без перерендеру), якщо документ є PDF. */
+    open val pdfFile: File? = null
+
+    /** Оригінальні файли з іменами та MIME-типом – для «Поділитися». */
+    var sources: List<Source> = emptyList()
+
+    class Source(val file: File, val name: String, val mime: String)
+
     open fun renderPage(page: PageItem, targetWidth: Int): Bitmap? = null
 
     open fun loadInlineImage(key: String, maxWidth: Int): Bitmap? = null
