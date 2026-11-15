@@ -296,8 +296,8 @@ class MainActivity : Activity() {
                     isChecked = tintPhotos
                 }
             }
-            // для PDF редагування вимкнене на прохання користувача
-            if (d.pdfFile == null) menu.add(0, M_EDIT, 6, "Редагувати")
+            // редагування лише для документів Word (DOC/DOCX/RTF)
+            if (!d.paged) menu.add(0, M_EDIT, 6, "Редагувати")
             if (d.pdfFile == null) menu.add(0, M_EXPORT_PDF, 6, "Зберегти як PDF…")
             menu.add(0, M_SHARE, 7, "Поділитися…")
             if (d.pdfFile == null) menu.add(0, M_SHARE_PDF, 7, "Поділитися як PDF…")
