@@ -70,7 +70,7 @@ class ParsersTest {
 
     @Test
     fun rtfCyrillic() {
-        val rtf = """{\rtf1\ansi\ansicpg1251{\fonttbl{\f0 Times;}}\f0 \'cf\'f0\'e8\'e2\'b3\'f2\par ၗ?ၴ?ᄐ?႐?}"""
+        val rtf = "{\\rtf1\\ansi\\ansicpg1251{\\fonttbl{\\f0 Times;}}\\f0 \\'cf\\'f0\\'e8\\'e2\\'b3\\'f2\\par \\u1057?\\u1074?\\u1110?\\u1090?}"
         val t = texts(RtfParser.parse(rtf.toByteArray(Charsets.ISO_8859_1)))
         assertEquals(listOf("Привіт", "Світ"), t)
     }
