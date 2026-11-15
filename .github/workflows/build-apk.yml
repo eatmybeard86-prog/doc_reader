@@ -36,13 +36,17 @@ jobs:
           name: DocReader-apk-${{ github.run_number }}
           path: out/*.apk
 
-      # Після злиття в main створюється реліз, з якого APK зручно завантажити прямо на телефон
+      # Кожна збірка публікується як реліз, щоб APK можна було завантажити прямо з телефона.
+      # Збірки з PR позначаються як попередні (pre-release).
       - name: Publish release
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
+          target_commitish: ${{ github.event.pull_request.head.sha || github.sha }}
           name: Читалка, збірка ${{ github.run_number }}
+          prerelease: ${{ github.event_name == 'pull_request' }}
+          make_latest: ${{ github.event_name != 'pull_request' }}
           body: |
             Завантажте файл DocReader-${{ github.run_number }}.apk нижче та відкрийте його на телефоні,
             щоб встановити (може знадобитися дозвіл «Встановлювати з невідомих джерел»).
