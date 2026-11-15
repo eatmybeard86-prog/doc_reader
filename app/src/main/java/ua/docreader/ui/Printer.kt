@@ -18,6 +18,7 @@ import android.print.PrintDocumentAdapter
 import android.print.PrintDocumentInfo
 import android.print.PrintManager
 import android.print.pdf.PrintedPdfDocument
+import android.graphics.pdf.PdfDocument
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
@@ -103,7 +104,7 @@ object Printer {
             thread {
                 val pdf = PrintedPdfDocument(ctx, attrs)
                 try {
-                    if (doc.paged) writeBitmapPages(pdf, cancellationSignal) else writeText(pdf, cancellationSignal)
+                    if (doc.paged) writeBitmapPages(pdf, cancellationSignal) else TextPdf.layout(doc, { pdf.startPage(it) }, { pdf.finishPage(it) }) { cancellationSignal.isCanceled }
                     if (cancellationSignal.isCanceled) {
                         main.post { callback.onWriteCancelled() }
                     } else {
@@ -142,9 +143,19 @@ object Printer {
             return RectF(l, t, l + w, t + h)
         }
 
-        private fun writeText(pdf: PrintedPdfDocument, cancel: CancellationSignal) {
+    }
+}
+
+/** Верстка тексту (DOC/DOCX/RTF) на сторінки PDF. Використовується для друку й експорту в PDF. */
+object TextPdf {
+    fun layout(
+        doc: Document,
+        start: (Int) -> PdfDocument.Page,
+        finish: (PdfDocument.Page) -> Unit,
+        canceled: () -> Boolean = { false },
+    ) {
             var pageNo = 0
-            var page = pdf.startPage(pageNo)
+            var page = start(pageNo)
             // поля 2 см (у точках, 1/72 дюйма), якщо принтер не задав більші
             val margin = 56f
             val r = page.info.contentRect
@@ -156,9 +167,9 @@ object Printer {
             var y = top
 
             fun newPage() {
-                pdf.finishPage(page)
+                finish(page)
                 pageNo++
-                page = pdf.startPage(pageNo)
+                page = start(pageNo)
                 y = top
             }
 
@@ -171,7 +182,7 @@ object Printer {
             val imgPaint = Paint(Paint.FILTER_BITMAP_FLAG)
 
             for (item in doc.items) {
-                if (cancel.isCanceled) break
+                if (canceled()) break
                 when (item) {
                     is TextItem -> {
                         val text = if (item.text.isEmpty()) " " else item.text
@@ -217,7 +228,21 @@ object Printer {
                     is PageItem -> {}
                 }
             }
-            pdf.finishPage(page)
+        finish(page)
+    }
+
+    /** Зберігає текстовий документ як PDF формату A4. */
+    fun export(doc: Document, out: java.io.OutputStream) {
+        val pdf = PdfDocument()
+        try {
+            layout(
+                doc,
+                { n -> pdf.startPage(PdfDocument.PageInfo.Builder(595, 842, n + 1).create()) },
+                { pdf.finishPage(it) },
+            )
+            pdf.writeTo(out)
+        } finally {
+            pdf.close()
         }
     }
 }

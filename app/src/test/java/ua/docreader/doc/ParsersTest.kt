@@ -74,4 +74,17 @@ class ParsersTest {
         val t = texts(RtfParser.parse(rtf.toByteArray(Charsets.ISO_8859_1)))
         assertEquals(listOf("Привіт", "Світ"), t)
     }
+
+    @Test
+    fun docxWriterRoundTrip() {
+        val text = android.text.SpannableStringBuilder("Перший <рядок> & жирне\nДругий\tрядок")
+        text.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 17, 22, 0)
+        val f = tmp.newFile("out.docx")
+        f.outputStream().use { DocxWriter.write(text, it) }
+        val items = ZipFile(f).use { DocxParser.parse(it) }
+        assertEquals(listOf("Перший <рядок> & жирне", "Другий\tрядок"), texts(items))
+        val first = (items[0] as TextItem).text as android.text.Spanned
+        val bold = first.getSpans(0, first.length, android.text.style.StyleSpan::class.java)
+        assertTrue(bold.any { first.getSpanStart(it) == 17 && first.getSpanEnd(it) == 22 })
+    }
 }

@@ -40,6 +40,9 @@ class PageAdapter(
     var theme: ReaderTheme = ReaderTheme.DAY
     /** Чи перефарбовувати фото відповідно до теми. */
     var tintPhotos = true
+    /** Анотації за номером сторінки. */
+    var annotations: Map<Int, List<Annotation>> = emptyMap()
+
     /** Базовий розмір шрифту в sp для текстових документів. */
     var baseTextSp = 17f
 
@@ -72,7 +75,7 @@ class PageAdapter(
 
     override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
         return when (val item = items[position]) {
-            is PageItem -> pageView(item, convertView as? ImageView, parent)
+            is PageItem -> pageView(item, convertView as? PageImageView, parent)
             is TextItem -> textView(item, convertView as? TextView, parent)
             is InlineImageItem -> inlineImageView(item, convertView as? ImageView, parent)
         }
@@ -80,8 +83,13 @@ class PageAdapter(
 
     private fun filterFor() = if (doc.isPhoto && !tintPhotos) null else theme.bitmapFilter()
 
-    private fun pageView(item: PageItem, convert: ImageView?, parent: ViewGroup): View {
-        val v = convert ?: ImageView(parent.context).apply { scaleType = ImageView.ScaleType.FIT_XY }
+    private fun pageView(item: PageItem, convert: PageImageView?, parent: ViewGroup): View {
+        val v = convert ?: PageImageView(parent.context).apply { scaleType = ImageView.ScaleType.FIT_XY }
+        v.annotations = annotations[item.index]
+        val recolor = filterFor() != null
+        v.ink = if (recolor) theme.ink else android.graphics.Color.BLACK
+        v.paper = if (recolor) theme.page else android.graphics.Color.WHITE
+        v.invalidate()
         val h = (pageWidth.toLong() * item.height / item.width).toInt().coerceAtLeast(1)
         v.layoutParams = AbsListView.LayoutParams(pageWidth, h)
         v.setBackgroundColor(theme.page)

@@ -15,6 +15,7 @@ import android.widget.HorizontalScrollView
 class ZoomContainer(ctx: Context) : HorizontalScrollView(ctx) {
     var onScale: ((factor: Float, focusX: Float, focusY: Float) -> Unit)? = null
     var onDoubleTap: ((x: Float, y: Float) -> Unit)? = null
+    var onSingleTap: ((x: Float, y: Float) -> Unit)? = null
 
     private var scaling = false
     private var pendingScrollX = -1
@@ -27,6 +28,11 @@ class ZoomContainer(ctx: Context) : HorizontalScrollView(ctx) {
     })
 
     private val gestureDetector = GestureDetector(ctx, object : GestureDetector.SimpleOnGestureListener() {
+        override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+            onSingleTap?.invoke(e.x, e.y)
+            return onSingleTap != null
+        }
+
         override fun onDoubleTap(e: MotionEvent): Boolean {
             onDoubleTap?.invoke(e.x, e.y)
             return true
