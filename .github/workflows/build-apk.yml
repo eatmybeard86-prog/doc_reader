@@ -1,4 +1,4 @@
-name: Build APK
+name: Test and build APK
 
 on:
   push:
@@ -22,8 +22,8 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Build APK
-        run: ./gradlew assembleRelease --no-daemon --stacktrace
+      - name: Test and build APK
+        run: ./gradlew testReleaseUnitTest assembleRelease --no-daemon --stacktrace
 
       - name: Rename APK
         run: |

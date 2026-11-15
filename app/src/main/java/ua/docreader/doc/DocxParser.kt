@@ -23,10 +23,21 @@ object DocxParser {
         val entry = zip.getEntry("word/document.xml")
             ?: throw DocException("Файл не схожий на документ Word (немає word/document.xml).")
         return zip.getInputStream(entry).use { input ->
-            val p = Xml.newPullParser()
+            val p = newParser()
             p.setInput(input, null)
             Builder(rels, styles).run(p)
+        }.also { items ->
+            val hasContent = items.any { it is InlineImageItem || (it is TextItem && it.text.isNotBlank()) }
+            if (!hasContent) throw DocException("У документі не знайдено тексту.")
         }
+    }
+
+    /**
+     * Xml.newPullParser() на Android вмикає обробку просторів імен, і тоді getName()
+     * повертає "p" замість "w:p". Розбір нижче спирається на префікси, тому вимикаємо її.
+     */
+    private fun newParser(): XmlPullParser = Xml.newPullParser().apply {
+        setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false)
     }
 
     private fun attr(p: XmlPullParser, name: String): String? {
@@ -50,7 +61,7 @@ object DocxParser {
         val entry = zip.getEntry("word/styles.xml") ?: return Styles(headings, defSize)
         try {
             zip.getInputStream(entry).use { input ->
-                val p = Xml.newPullParser()
+                val p = newParser()
                 p.setInput(input, null)
                 var styleId: String? = null
                 var inDefaults = false
@@ -97,7 +108,7 @@ object DocxParser {
         val entry = zip.getEntry("word/_rels/document.xml.rels") ?: return map
         try {
             zip.getInputStream(entry).use { input ->
-                val p = Xml.newPullParser()
+                val p = newParser()
                 p.setInput(input, null)
                 while (true) {
                     val ev = p.next()
