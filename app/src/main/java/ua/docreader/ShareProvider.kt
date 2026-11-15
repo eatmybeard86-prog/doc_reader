@@ -59,33 +59,44 @@ class ShareProvider : ContentProvider() {
         /** Готує Intent «Поділитися» для відкритого документа. */
         fun shareIntent(ctx: Context, doc: Document): Intent? {
             if (doc.sources.isEmpty()) return null
+            return build(ctx, doc.title, doc.sources.map { s -> Triple(s.name, s.mime) { dest: File -> s.file.copyTo(dest, overwrite = true); Unit } })
+        }
+
+        /** «Поділитися як PDF»: документ спершу конвертується в PDF. */
+        fun sharePdfIntent(ctx: Context, doc: Document, writePdf: (java.io.OutputStream) -> Unit): Intent? {
+            val name = doc.title.substringBeforeLast('.').ifBlank { "Документ" } + ".pdf"
+            return build(ctx, doc.title, listOf(Triple(name, "application/pdf") { dest: File -> dest.outputStream().use(writePdf) }))
+        }
+
+        private fun build(ctx: Context, title: String, files: List<Triple<String, String, (File) -> Unit>>): Intent? {
+            if (files.isEmpty()) return null
             val root = shareDir(ctx)
             root.deleteRecursively()
             val uris = ArrayList<Uri>()
-            doc.sources.forEachIndexed { i, s ->
+            files.forEachIndexed { i, (name, mime, write) ->
                 val dir = File(root, i.toString()).apply { mkdirs() }
-                val safeName = s.name.replace('/', '_').ifBlank { "file" }
+                val safeName = name.replace('/', '_').ifBlank { "file" }
                 val dest = File(dir, safeName)
-                s.file.copyTo(dest, overwrite = true)
+                write(dest)
                 uris += Uri.Builder()
                     .scheme("content")
                     .authority(ctx.packageName + ".share")
                     .appendPath(i.toString())
                     .appendPath(safeName)
-                    .appendQueryParameter("mime", s.mime)
+                    .appendQueryParameter("mime", mime)
                     .build()
             }
-            val mimes = doc.sources.map { it.mime }.distinct()
+            val mimes = files.map { it.second }.distinct()
             val intent = if (uris.size == 1) {
                 Intent(Intent.ACTION_SEND).putExtra(Intent.EXTRA_STREAM, uris[0])
             } else {
                 Intent(Intent.ACTION_SEND_MULTIPLE).putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
             }
             intent.type = if (mimes.size == 1) mimes[0] else "image/*"
-            intent.putExtra(Intent.EXTRA_SUBJECT, doc.title)
+            intent.putExtra(Intent.EXTRA_SUBJECT, title)
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             // щоб дозвіл на читання дійшов до вибраного застосунку
-            intent.clipData = android.content.ClipData.newRawUri(doc.title, uris[0]).apply {
+            intent.clipData = android.content.ClipData.newRawUri(title, uris[0]).apply {
                 for (k in 1 until uris.size) addItem(android.content.ClipData.Item(uris[k]))
             }
             return Intent.createChooser(intent, "Поділитися").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

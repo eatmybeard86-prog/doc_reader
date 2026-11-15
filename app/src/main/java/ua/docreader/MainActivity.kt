@@ -296,9 +296,11 @@ class MainActivity : Activity() {
                     isChecked = tintPhotos
                 }
             }
-            menu.add(0, M_EDIT, 6, "Редагувати")
+            // для PDF редагування вимкнене на прохання користувача
+            if (d.pdfFile == null) menu.add(0, M_EDIT, 6, "Редагувати")
             if (d.pdfFile == null) menu.add(0, M_EXPORT_PDF, 6, "Зберегти як PDF…")
             menu.add(0, M_SHARE, 7, "Поділитися…")
+            if (d.pdfFile == null) menu.add(0, M_SHARE_PDF, 7, "Поділитися як PDF…")
             menu.add(0, M_PRINT, 7, "Друк / зберегти як PDF…")
             menu.add(0, M_CLOSE, 8, "Закрити документ")
         }
@@ -330,6 +332,7 @@ class MainActivity : Activity() {
                 applyTheme()
             }
             M_SHARE -> doc?.let { shareDocument(it) }
+            M_SHARE_PDF -> doc?.let { shareDocument(it, asPdf = true) }
             M_PRINT -> doc?.let {
                 try {
                     Printer.print(this, it)
@@ -771,12 +774,20 @@ class MainActivity : Activity() {
         super.onBackPressed()
     }
 
-    private fun shareDocument(d: Document) {
+    private fun shareDocument(d: Document, asPdf: Boolean = false) {
+        if (asPdf) progress.visibility = View.VISIBLE
         scope.launch {
             try {
-                val intent = withContext(Dispatchers.IO) { ShareProvider.shareIntent(this@MainActivity, d) }
+                val intent = withContext(renderDispatcher) {
+                    if (!asPdf) ShareProvider.shareIntent(this@MainActivity, d)
+                    else ShareProvider.sharePdfIntent(this@MainActivity, d) { out ->
+                        if (d.paged) AnnotationDrawer.exportPdf(d, emptyMap(), out) else ua.docreader.ui.TextPdf.export(d, out)
+                    }
+                }
+                progress.visibility = View.GONE
                 if (intent == null) showError("Немає файлу, яким можна поділитися.") else startActivity(intent)
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
+                progress.visibility = View.GONE
                 showError("Не вдалося поділитися файлом: ${e.message ?: e.javaClass.simpleName}")
             }
         }
@@ -929,5 +940,6 @@ class MainActivity : Activity() {
         private const val REQ_SAVE_PDF = 3
         private const val REQ_EXPORT_PDF = 4
         private const val M_EXPORT_PDF = 19
+        private const val M_SHARE_PDF = 20
     }
 }
