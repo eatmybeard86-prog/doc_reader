@@ -1,0 +1,67 @@
+name: Test and build iOS app
+
+on:
+  push:
+    branches: [main]
+    paths: ["ios/**", ".github/workflows/build-ios.yml"]
+  pull_request:
+    paths: ["ios/**", ".github/workflows/build-ios.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: ios
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Run tests
+        run: |
+          set -o pipefail
+          SIM=$(xcrun simctl list devices available | grep -m1 -oE 'iPhone [0-9]+( Pro)?' || true)
+          echo "Simulator: $SIM"
+          xcodebuild test -project DocReader.xcodeproj -scheme DocReader \
+            -destination "platform=iOS Simulator,name=$SIM" \
+            CODE_SIGNING_ALLOWED=NO -quiet
+
+      - name: Build unsigned IPA
+        run: |
+          set -o pipefail
+          xcodebuild build -project DocReader.xcodeproj -scheme DocReader -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" -quiet
+          mkdir -p out/Payload
+          cp -R build/Build/Products/Release-iphoneos/DocReader.app out/Payload/
+          cd out && zip -qry "DocReader-${{ github.run_number }}.ipa" Payload && rm -rf Payload
+          ls -la
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DocReader-ipa-${{ github.run_number }}
+          path: ios/out/*.ipa
+
+      # Кожна збірка публікується як реліз, щоб IPA можна було завантажити прямо з телефона.
+      - name: Publish release
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ios-build-${{ github.run_number }}
+          target_commitish: ${{ github.event.pull_request.head.sha || github.sha }}
+          name: Читалка для iPhone, збірка ${{ github.run_number }}
+          prerelease: ${{ github.event_name == 'pull_request' }}
+          make_latest: false
+          body: |
+            Непідписаний файл DocReader-${{ github.run_number }}.ipa для iPhone/iPad (iOS 15+).
+            Встановлення – через Sideloadly або AltStore зі своїм Apple ID (див. ios/README.md).
+          files: ios/out/*.ipa
